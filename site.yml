@@ -1,0 +1,172 @@
+- name: Hello
+  hosts: CFME
+  vars:
+    rhn_poolid: "8a85f98659b89f210159bd1d355f7c5c"
+    rhn_userid: "shadowman"
+    rhn_passid: "opensource"
+  tasks:
+  - name: "Register RHEL via subscription-manager"
+    redhat_subscription:
+      state: present
+      username: "{{rhn_userid}}"
+      password: "{{rhn_passid}}"
+
+  - name: Subscribe RHEL to poolid via subscription-manager
+    shell: subscription-manager attach --pool="{{rhn_poolid}}"
+    ignore_errors: yes
+
+  - name: Enable rhel-7-server-extras-rpms via subscription-manager
+    shell: subscription-manager repos --enable rhel-7-server-extras-rpms
+    ignore_errors: yes
+
+  - name: Yum Update All
+    yum: name=* state=latest
+
+  - name: Yum Install Git
+    yum: name=git state=latest
+
+  - name: Yum Install Tree
+    yum: name=tree state=latest
+
+  - name: Yum Install Wget
+    yum: name=wget state=latest
+
+  - name: Yum Install VIM
+    yum: name=vim state=latest
+
+  - name: Clone CloudForms_Essentials from github
+    git:
+      repo: https://github.com/ramrexx/CloudForms_Essentials.git
+      dest: /var/tmp/CloudForms_Essentials
+
+  - name: Clone CloudFormsPOC from github
+    git:
+      repo: https://github.com/ramrexx/CloudFormsPOC.git
+      dest: /var/tmp/CloudFormsPOC
+
+  - name: Clone cfme-rhconsulting-scripts from github
+    git:
+      repo: https://github.com/rhtconsulting/cfme-rhconsulting-scripts.git
+      dest: /root/cfme-rhconsulting-scripts
+
+  - name: This command will change the working directory to somedir/ and will only run when somedir/somelog.txt doesn't exist.
+    shell: make install
+    args:
+      chdir: /root/cfme-rhconsulting-scripts
+      creates: cfme-rhconsulting-scripts.txt
+
+  - name: Download Repo for ServiceNow_Incident
+    git:
+      repo: https://github.com/ramrexx/ServiceNow_Incident.git
+      dest: /root/ramrexx-ServiceNow_Incident
+
+  - name: Import the Automate Domain for ServiceNow_Incident
+    shell: /usr/bin/miqimport domain ServiceNow_Incident /root/ramrexx-ServiceNow_Incident/automate/
+    args:
+      chdir: /root/ramrexx-ServiceNow_Incident
+      creates: ramrexx-ServiceNow_Incident-import-automate-domain.txt
+
+  - name: Import the Service Dialogs for ServiceNow_Incident
+    shell: /usr/bin/miqimport service_dialogs /root/ramrexx-ServiceNow_Incident/service_dialogs/servicenow_incident_dialog.yml
+    args:
+      chdir: /root/ramrexx-ServiceNow_Incident
+      creates: ramrexx-ServiceNow_Incident-import-service-dialogs.txt
+
+  - name: Import the Custom Buttons for ServiceNow_Incident
+    shell: /usr/bin/miqimport buttons /root/ramrexx-ServiceNow_Incident/buttons/ServiceNow_IM_Vm_.yaml
+    args:
+      chdir: /root/ramrexx-ServiceNow_Incident
+      creates: ramrexx-ServiceNow_Incident-import-custom-buttons.txt
+
+  - name: Pause to Confirm Completion of ServiceNow_Incident
+    pause: prompt="Does the ServiceNow_Incident import look right?" minutes=3
+
+  - name: Clone CloudFormsPOC from github
+    git:
+      repo: https://github.com/ramrexx/ServiceNow_Incident.git
+      dest: /root/ServiceNow_Incident
+
+  - name: Prompt login to CloudForms to validate ServiceNow_Incident
+    pause: prompt="Log into your CloudForms/ManageIQ appliance and navigate to Automate / Import/Export.Upload the CloudFormsPOC.zip file. This may take a few seconds.  When complete navigate to Automate / Explorer and you should see the CloudForms POC Domain.  You will need to edit the domain and check the "enable" box.  Your automate domain is ready to use!" minutes=2
+
+  # Example git checkout from Ansible Playbooks
+  - name: Clone ServiceNow_CMDB from github
+    git:
+      repo: https://github.com/ramrexx/ServiceNow_CMDB.git
+      dest: /root/ServiceNow_CMDB
+
+  # Import the Automate Domain
+  - name: Import the Automate Domain for ServiceNow_CMDB
+    shell: /usr/bin/miqimport domain ServiceNow_CMDB /root/ServiceNow_CMDB/automate
+    args:
+      chdir: /root/ServiceNow_CMDB
+      creates: ramrexx-ServiceNow_CMDB-import-automate-domain.txt
+
+  # Import the Custom Buttons
+  - name: Import the Custom Buttons for ServiceNow_CMDB
+    shell: /usr/bin/miqimport buttons /root/ServiceNow_CMDB/buttons/ServiceNow_CMDB_Vm_.yaml
+    args:
+      chdir: /root/ServiceNow_CMDB
+      creates: ramrexx-ServiceNow_CMDB-import-custom-buttons.txt
+
+  #Prompt login to CloudForms
+  - name: Prompt login to CloudForms to validate ServiceNow_CMDB
+    pause: prompt="Update Automate StateMachine / Log into your CloudForms/ManageIQ UI/ Navigate to Automate / ServiceNow_CMDB / Integration / ServiceNow / CMDB / StateMachines /Update the StateMachine class schema with your ServiceNow instance information (i.e. dev?????.service-now.com) and credentials / Add proxy_url if necessary." minutes=2
+
+  # Example git checkout from Ansible Playbooks
+  - name: "Clone ServiceNow_ServiceCatalog from github"
+    git:
+      repo: https://github.com/ramrexx/ServiceNow_ServiceCatalog.git
+      dest: /root/ServiceNow_ServiceCatalog
+
+  # Example git checkout from Ansible Playbooks
+  - name: "Clone CloudForms_Chef from github"
+    git:
+      repo: https://github.com/ramrexx/CloudForms_Chef
+      dest: /root/CloudForms_Chef
+
+  # Import the Automate Domain
+  - name: Import the Automate Domain for ServiceNow_Incident
+    shell: /usr/bin/miqimport domain ServiceNow_Incident /root/ramrexx-ServiceNow_Incident/automate/
+    args:
+      chdir: /root/ServiceNow_Incident
+      creates: ramrexx-ServiceNow_Incident-import-automate-domain.txt
+
+  # Import the Service Dialogs
+  - name: Import the Service Dialogs for ServiceNow_Incident
+    shell: /usr/bin/miqimport service_dialogs /root/ramrexx-ServiceNow_Incident/service_dialogs/servicenow_incident_dialog.yml
+    args:
+      chdir: /root/ServiceNow_Incident
+      creates: ramrexx-ServiceNow_Incident-import-service-dialogs.txt
+
+  # Import the Custom Buttons
+  - name: Import the Custom Buttons for ServiceNow_Incident
+    shell: /usr/bin/miqimport buttons /root/ramrexx-ServiceNow_Incident/buttons/ServiceNow_IM_Vm_.yaml
+    args:
+     chdir: /root/ServiceNow_Incident
+     creates: ramrexx-ServiceNow_Incident-import-custom-buttons.txt
+
+  # Import the Widgets
+  - name: Import the Widgets for ServiceNow_Incident
+    shell: /usr/bin/miqimport buttons /root/ramrexx-ServiceNow_Incident/buttons/ServiceNow_IM_Vm_.yaml
+    args:
+      chdir: /root/ServiceNow_Incident
+      creates: ramrexx-ServiceNow_Incident-import-custom-buttons.txt
+
+  # Clone CloudFormsPOC from github
+  - name: "Clone CloudForms_Infoblox from github"
+    git:
+      repo: https://github.com/ramrexx/CloudForms_Infoblox.git
+      dest: /root/CloudForms_Infoblox
+
+  # Import the Automate Domain
+  - name: Import the Automate Domain for CloudForms_Infoblox
+    shell: /usr/bin/miqimport domain CloudForms_Infoblox /root/CloudForms_Infoblox/automate/
+    args:
+      chdir: /root/CloudForms_Infoblox
+      creates: ramrexx-CloudForms_Infoblox-import-automate-domain.txt
+
+  # Prompt login to CloudForms
+  - name: Prompt login to CloudForms to validate Infoblox
+    pause: prompt="Update Automate StateMachine / Log into your CloudForms/ManageIQ UI / Navigate to Automate / CloudForms_Infoblox / Integration / Infoblox / DDI / StateMachines / Update the StateMachine class schema with your Infoblox information." minutes=2
+
