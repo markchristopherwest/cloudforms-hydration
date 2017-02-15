@@ -4,6 +4,7 @@
     rhn_poolid: "8a85f98659b89f210159bd1d355f7c5c"
     rhn_userid: "shadowman"
     rhn_passid: "opensource"
+    provision_demo: true
   tasks:
   - name: "Register RHEL via subscription-manager"
     redhat_subscription:
@@ -34,6 +35,102 @@
   - name: Yum Install VIM
     yum: name=vim state=latest
 
+  - name: Disable evmserverd
+    service:
+      name: evmserverd
+      enabled: no
+
+  - name: Stop evmserverd
+    service:
+      name: evmserverd
+      state: stopped
+    when: provision_demo == true
+
+  - name: Pause for evmserverd to stop
+    pause: prompt="Please wait..." minutes=1
+
+  - name: Download Dump for Demo
+    get_url:
+      url: http://10.9.62.89/dumps/42/vmdb_production_latest.dump
+      dest: /root/vmdb_production_latest.dump
+      mode: 0440
+      timeout: 120
+
+  # Drop the Existing DB
+  - name: Drop Existing vmdb_production
+    shell: dropdb vmdb_production
+    args:
+      chdir: /root
+    ignore_errors: yes
+    when: provision_demo == true
+
+  # Drop the Existing DB
+  - name: Create Blank vmdb_production
+    shell: createdb vmdb_production
+    args:
+      chdir: /root
+    when: provision_demo == true
+
+  # Drop the Existing DB
+  - name: Restore the Dump
+    shell: pg_restore -vd vmdb_production vmdb_production_latest.dump 
+    args:
+      chdir: /root
+    when: provision_demo == true
+
+  # Drop the Existing DB
+  - name: bundle exec tools
+    shell: bundle exec tools/fix_auth.rb --v2 --invalid bogus 
+    args:
+      chdir: /var/www/miq/vmdb
+    when: provision_demo == true
+
+  # Drop the Existing DB
+  - name: rails updates
+    shell: bin/rails r "User.find_by_userid('admin').update_attributes(:password => 'smartvm')"
+    args:
+      chdir: /var/www/miq/vmdb
+    when: provision_demo == true
+
+  - name: Enable evmserverd
+    service:
+      name: evmserverd
+      enabled: yes
+
+  # Example action to stop service httpd, if running
+  - name: Start evmserverd 
+    service:
+      name: evmserverd
+      state: started
+    when: provision_demo == true
+
+  - name: Pause for evmserverd to start
+    pause: prompt="Please wait..." minutes=1
+
+  # Clone CloudFormsPOC from github
+  - name: "Clone CloudForms_Infoblox from github"
+    git:
+      repo: https://github.com/rhtconsulting/cfme-rhconsulting-scripts.git
+      dest: /root/cfme-rhconsulting-scripts
+
+  - name:  install the miqimport/miqexport utilities
+    shell: make install
+    args:
+      chdir: /root/cfme-rhconsulting-scripts
+      creates: /root/cfme-rhconsulting-scripts.txt
+
+  # Clone CloudFormsPOC from github
+  - name: "Clone CloudForms_Infoblox from github"
+    git:
+      repo: https://github.com/ramrexx/CloudForms_Infoblox.git
+      dest: /root/CloudForms_Infoblox
+
+  - name: Import the Automate Domain for CloudForms_Infoblox
+    shell: /usr/bin/miqimport domain CloudForms_Infoblox /root/CloudForms_Infoblox/automate/
+    args:
+      chdir: /root/CloudForms_Infoblox
+      creates: /root/CloudForms_Infoblox/ramrexx-CloudForms_Infoblox-import-automate-domain.txt
+
   - name: Clone CloudForms_Essentials from github
     git:
       repo: https://github.com/ramrexx/CloudForms_Essentials.git
@@ -53,7 +150,7 @@
     shell: make install
     args:
       chdir: /root/cfme-rhconsulting-scripts
-      creates: cfme-rhconsulting-scripts.txt
+      creates: /root/cfme-rhconsulting-scriptscfme-rhconsulting-scripts.txt
 
   - name: Download Repo for ServiceNow_Incident
     git:
@@ -64,19 +161,19 @@
     shell: /usr/bin/miqimport domain ServiceNow_Incident /root/ramrexx-ServiceNow_Incident/automate/
     args:
       chdir: /root/ramrexx-ServiceNow_Incident
-      creates: ramrexx-ServiceNow_Incident-import-automate-domain.txt
+      creates: /root/ramrexx-ServiceNow_Incident/ramrexx-ServiceNow_Incident-import-automate-domain.txt
 
   - name: Import the Service Dialogs for ServiceNow_Incident
     shell: /usr/bin/miqimport service_dialogs /root/ramrexx-ServiceNow_Incident/service_dialogs/servicenow_incident_dialog.yml
     args:
       chdir: /root/ramrexx-ServiceNow_Incident
-      creates: ramrexx-ServiceNow_Incident-import-service-dialogs.txt
+      creates: /root/ramrexx-ServiceNow_Incident/ramrexx-ServiceNow_Incident-import-service-dialogs.txt
 
   - name: Import the Custom Buttons for ServiceNow_Incident
     shell: /usr/bin/miqimport buttons /root/ramrexx-ServiceNow_Incident/buttons/ServiceNow_IM_Vm_.yaml
     args:
       chdir: /root/ramrexx-ServiceNow_Incident
-      creates: ramrexx-ServiceNow_Incident-import-custom-buttons.txt
+      creates: /root/ramrexx-ServiceNow_Incident/ramrexx-ServiceNow_Incident-import-custom-buttons.txt
 
   - name: Pause to Confirm Completion of ServiceNow_Incident
     pause: prompt="Does the ServiceNow_Incident import look right?" minutes=3
@@ -100,14 +197,14 @@
     shell: /usr/bin/miqimport domain ServiceNow_CMDB /root/ServiceNow_CMDB/automate
     args:
       chdir: /root/ServiceNow_CMDB
-      creates: ramrexx-ServiceNow_CMDB-import-automate-domain.txt
+      creates: /root/ServiceNow_CMDB/ramrexx-ServiceNow_CMDB-import-automate-domain.txt
 
   # Import the Custom Buttons
   - name: Import the Custom Buttons for ServiceNow_CMDB
     shell: /usr/bin/miqimport buttons /root/ServiceNow_CMDB/buttons/ServiceNow_CMDB_Vm_.yaml
     args:
       chdir: /root/ServiceNow_CMDB
-      creates: ramrexx-ServiceNow_CMDB-import-custom-buttons.txt
+      creates: /root/ServiceNow_CMDB/ramrexx-ServiceNow_CMDB-import-custom-buttons.txt
 
   #Prompt login to CloudForms
   - name: Prompt login to CloudForms to validate ServiceNow_CMDB
@@ -130,41 +227,35 @@
     shell: /usr/bin/miqimport domain ServiceNow_Incident /root/ramrexx-ServiceNow_Incident/automate/
     args:
       chdir: /root/ServiceNow_Incident
-      creates: ramrexx-ServiceNow_Incident-import-automate-domain.txt
+      creates: /root/ServiceNow_Incident/ramrexx-ServiceNow_Incident-import-automate-domain.txt
 
   # Import the Service Dialogs
   - name: Import the Service Dialogs for ServiceNow_Incident
     shell: /usr/bin/miqimport service_dialogs /root/ramrexx-ServiceNow_Incident/service_dialogs/servicenow_incident_dialog.yml
     args:
       chdir: /root/ServiceNow_Incident
-      creates: ramrexx-ServiceNow_Incident-import-service-dialogs.txt
+      creates: /root/ServiceNow_Incident/ramrexx-ServiceNow_Incident-import-service-dialogs.txt
 
   # Import the Custom Buttons
   - name: Import the Custom Buttons for ServiceNow_Incident
     shell: /usr/bin/miqimport buttons /root/ramrexx-ServiceNow_Incident/buttons/ServiceNow_IM_Vm_.yaml
     args:
      chdir: /root/ServiceNow_Incident
-     creates: ramrexx-ServiceNow_Incident-import-custom-buttons.txt
+     creates: /root/ServiceNow_Incident/ramrexx-ServiceNow_Incident-import-custom-buttons.txt
 
   # Import the Widgets
   - name: Import the Widgets for ServiceNow_Incident
     shell: /usr/bin/miqimport buttons /root/ramrexx-ServiceNow_Incident/buttons/ServiceNow_IM_Vm_.yaml
     args:
       chdir: /root/ServiceNow_Incident
-      creates: ramrexx-ServiceNow_Incident-import-custom-buttons.txt
-
-  # Clone CloudFormsPOC from github
-  - name: "Clone CloudForms_Infoblox from github"
-    git:
-      repo: https://github.com/ramrexx/CloudForms_Infoblox.git
-      dest: /root/CloudForms_Infoblox
+      creates: /root/ServiceNow_Incident/ramrexx-ServiceNow_Incident-import-custom-buttons.txt
 
   # Import the Automate Domain
   - name: Import the Automate Domain for CloudForms_Infoblox
     shell: /usr/bin/miqimport domain CloudForms_Infoblox /root/CloudForms_Infoblox/automate/
     args:
       chdir: /root/CloudForms_Infoblox
-      creates: ramrexx-CloudForms_Infoblox-import-automate-domain.txt
+      creates: /root/CloudForms_Infoblox/ramrexx-CloudForms_Infoblox-import-automate-domain.txt
 
   # Prompt login to CloudForms
   - name: Prompt login to CloudForms to validate Infoblox
