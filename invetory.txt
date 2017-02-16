@@ -1,2 +1,0 @@
-[CFME]
-192.168.51.101  ansible_user=root  ansible_ssh_pass=smartvm
