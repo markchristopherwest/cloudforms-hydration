@@ -11,6 +11,7 @@
       state: present
       username: "{{rhn_userid}}"
       password: "{{rhn_passid}}"
+    ignore_errors: yes
 
   - name: Subscribe RHEL to poolid via subscription-manager
     shell: subscription-manager attach --pool="{{rhn_poolid}}"
@@ -20,8 +21,24 @@
     shell: subscription-manager repos --enable rhel-7-server-extras-rpms
     ignore_errors: yes
 
+  - name: Stop evmserverd
+    service:
+      name: evmserverd
+      state: stopped
+    when: provision_demo == true
+
+  - name: Disable evmserverd
+    service:
+      name: evmserverd
+      enabled: no
+
+  - name: Pause for evmserverd to stop
+    pause: prompt="Please wait..." minutes=1
+    when: provision_demo == true
+
   - name: Yum Update All
     yum: name=* state=latest
+    when: provision_demo == false
 
   - name: Yum Install Git
     yum: name=git state=latest
@@ -35,19 +52,6 @@
   - name: Yum Install VIM
     yum: name=vim state=latest
 
-  - name: Disable evmserverd
-    service:
-      name: evmserverd
-      enabled: no
-
-  - name: Stop evmserverd
-    service:
-      name: evmserverd
-      state: stopped
-    when: provision_demo == true
-
-  - name: Pause for evmserverd to stop
-    pause: prompt="Please wait..." minutes=1
 
   - name: Download Dump for Demo
     get_url:
@@ -55,6 +59,7 @@
       dest: /root/vmdb_production_latest.dump
       mode: 0440
       timeout: 120
+    when: provision_demo == true
 
   # Drop the Existing DB
   - name: Drop Existing vmdb_production
@@ -73,14 +78,14 @@
 
   # Drop the Existing DB
   - name: Restore the Dump
-    shell: pg_restore -vd vmdb_production vmdb_production_latest.dump 
+    shell: pg_restore -vd vmdb_production vmdb_production_latest.dump
     args:
       chdir: /root
     when: provision_demo == true
 
   # Drop the Existing DB
   - name: bundle exec tools
-    shell: bundle exec tools/fix_auth.rb --v2 --invalid bogus 
+    shell: bundle exec tools/fix_auth.rb --v2 --invalid bogus
     args:
       chdir: /var/www/miq/vmdb
     when: provision_demo == true
@@ -98,14 +103,13 @@
       enabled: yes
 
   # Example action to stop service httpd, if running
-  - name: Start evmserverd 
+  - name: Start evmserverd
     service:
       name: evmserverd
       state: started
-    when: provision_demo == true
 
   - name: Pause for evmserverd to start
-    pause: prompt="Please wait..." minutes=1
+    pause: prompt="Please wait.  CFME is starting..." minutes=1
 
   # Clone CloudFormsPOC from github
   - name: "Clone CloudForms_Infoblox from github"
@@ -119,7 +123,7 @@
       chdir: /root/cfme-rhconsulting-scripts
       creates: /root/cfme-rhconsulting-scripts.txt
 
-  # Clone CloudFormsPOC from github
+  # Clone CloudForms_Infoblox from github
   - name: "Clone CloudForms_Infoblox from github"
     git:
       repo: https://github.com/ramrexx/CloudForms_Infoblox.git
@@ -136,10 +140,10 @@
       repo: https://github.com/ramrexx/CloudForms_Essentials.git
       dest: /var/tmp/CloudForms_Essentials
 
-  - name: Clone CloudFormsPOC from github
+  - name: Clone CloudForms_Essentials from github
     git:
-      repo: https://github.com/ramrexx/CloudFormsPOC.git
-      dest: /var/tmp/CloudFormsPOC
+      repo: https://github.com/ramrexx/CloudForms_Essentials.git
+      dest: /var/tmp/CloudForms_Essentials
 
   - name: Clone cfme-rhconsulting-scripts from github
     git:
@@ -260,4 +264,3 @@
   # Prompt login to CloudForms
   - name: Prompt login to CloudForms to validate Infoblox
     pause: prompt="Update Automate StateMachine / Log into your CloudForms/ManageIQ UI / Navigate to Automate / CloudForms_Infoblox / Integration / Infoblox / DDI / StateMachines / Update the StateMachine class schema with your Infoblox information." minutes=2
-
